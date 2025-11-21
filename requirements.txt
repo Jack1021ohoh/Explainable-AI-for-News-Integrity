@@ -1,0 +1,6 @@
+pyspark
+chromadb
+sentence-transformers
+datasets
+pandas
+numpy

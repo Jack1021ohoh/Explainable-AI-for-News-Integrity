@@ -1,0 +1,9 @@
+# Ignore Data Files
+*.parquet
+*.zip
+*.sqlite3
+chroma_db_wiki/
+data/
+__pycache__/
+.ipynb_checkpoints/
+.DS_Store
