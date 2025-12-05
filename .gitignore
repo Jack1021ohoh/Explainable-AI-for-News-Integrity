@@ -1,9 +1,15 @@
-# Ignore Data Files
-*.parquet
+# --- Python ---
+__pycache__/
+*.pyc
+
+# --- Data ---
+data/
 *.zip
+*.parquet
 *.sqlite3
 chroma_db_wiki/
-data/
-__pycache__/
-.ipynb_checkpoints/
-.DS_Store
+
+# --- Environment Secrets ---
+.env
+.venv/
+env/
