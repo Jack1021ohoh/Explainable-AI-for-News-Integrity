@@ -1,0 +1,14 @@
+[project]
+name = "explainable-ai-for-news-integrity"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "chromadb>=1.3.5",
+    "datasets>=4.4.1",
+    "numpy>=2.3.5",
+    "pandas>=2.3.3",
+    "pyspark>=4.0.1",
+    "sentence-transformers>=5.1.2",
+]

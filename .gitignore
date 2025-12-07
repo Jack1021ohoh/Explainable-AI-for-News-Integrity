@@ -13,3 +13,4 @@ chroma_db_wiki/
 .env
 .venv/
 env/
+.DS_Store
