@@ -1,28 +1,37 @@
 import os
+import sys
 import chromadb
 from sentence_transformers import SentenceTransformer
 from typing import List, Dict, Any
+
+# Add parent directory to path to import config
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from config.config import CHROMA_DB_PATH, SENTENCE_TRANSFORMER_MODEL
+
 
 class WiliRetriever:
     """
     A retriever class that interfaces with ChromaDB to fetch relevant Wikipedia chunks.
     """
     
-    def __init__(self, db_path: str = "./data/chroma_db_wiki", model_name: str = "all-MiniLM-L6-v2"):
+    def __init__(self, db_path: str = None, model_name: str = None):
         """
         Initialize the retriever with embedding model and database client.
-        
+
         Args:
-            db_path (str): Path to the ChromaDB persistence directory.
-            model_name (str): Hugging Face model name for sentence embeddings.
+            db_path (str): Path to the ChromaDB persistence directory (default from config).
+            model_name (str): Hugging Face model name for sentence embeddings (default from config).
         """
-        print(f"Loading embedding model: {model_name}...")
-        self.model = SentenceTransformer(model_name, device="cpu")
+        self.db_path = db_path or CHROMA_DB_PATH
+        self.model_name = model_name or SENTENCE_TRANSFORMER_MODEL
+
+        print(f"Loading embedding model: {self.model_name}...")
+        self.model = SentenceTransformer(self.model_name, device="cpu")
 
         print("Connecting to ChromaDB...")
-        if not os.path.exists(db_path):
-            raise FileNotFoundError(f"Database path '{db_path}' does not exist.")
-        self.client = chromadb.PersistentClient(path=db_path)
+        if not os.path.exists(self.db_path):
+            raise FileNotFoundError(f"Database path '{self.db_path}' does not exist.")
+        self.client = chromadb.PersistentClient(path=self.db_path)
         self.collection = self.client.get_collection(name="wiki_knowledge")
         print("WikiRetriever initialized successfully.")
 
