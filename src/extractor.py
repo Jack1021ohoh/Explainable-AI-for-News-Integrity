@@ -142,6 +142,14 @@ class ClaimExtractor:
             print(f"Error extracting claims: {e}")
             return []
         
+    def extract_claims(self, text: str) -> List[str]:
+        """
+        Wrapper method for compatibility with existing architecture.
+        Returns a list of claim texts (strings) instead of Claim objects.
+        """
+        rich_claims = self.extract(text)
+        return [c.text for c in rich_claims]
+        
     def _parse_response(self, raw_content: str) -> List[Claim]:
         """Parse LLM response into Claim objects."""
         try:
