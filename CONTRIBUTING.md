@@ -228,7 +228,7 @@ Explainable-AI-for-News-Integrity/
 |--------|---------|-------|
 | `src/classifier.py` | Fake news classification (RoBERTa) | Jack |
 | `src/explainer.py` | AI explanation generation (Gemini) | Jack |
-| `src/extractor.py` | Claim extraction from articles | Shared |
+| `src/extractor.py` | Claim extraction from articles | Hung |
 | `src/retriever.py` | Wikipedia evidence retrieval | Hung |
 | `app/app.py` | Streamlit web interface | Jack |
 | `config/config.py` | Configuration management | Shared |
