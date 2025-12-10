@@ -70,7 +70,7 @@ class LLMExplainer:
 
         try:
             # Use the Gemini-based explanation prompt
-            explanation_json = self._explain_with_gemini(text, detector_label)
+            explanation_json = self._explain_with_gemini(title + "\n" + text, detector_label)
             return explanation_json
 
         except Exception as e:
