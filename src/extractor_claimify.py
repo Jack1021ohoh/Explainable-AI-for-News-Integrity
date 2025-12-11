@@ -23,6 +23,7 @@ from dotenv import load_dotenv
 from groq import Groq
 import nltk
 from nltk.tokenize import sent_tokenize
+from tqdm import tqdm
 
 try:
     nltk.data.find('tokenizers/punkt_tab')
