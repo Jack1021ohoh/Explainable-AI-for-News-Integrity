@@ -9,6 +9,7 @@ dependencies = [
     "datasets>=2.14.0",
     "google-generativeai>=0.3.0",
     "groq>=0.37.1",
+    "nltk>=3.9.2",
     "numpy>=1.24.0",
     "pandas>=2.0.0",
     "pyspark>=3.5.0",
