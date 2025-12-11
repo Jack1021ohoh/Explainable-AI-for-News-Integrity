@@ -434,22 +434,26 @@ def main():
     # ==========================================================================
     # Display Results
     # ==========================================================================
-    
-    # Classification Result
-    st.markdown('<div class="section-header">📊 Classification Result</div>', unsafe_allow_html=True)
-    
-    result_class = "result-fake" if classification == "FAKE" else "result-real"
-    result_icon = "⚠️" if classification == "FAKE" else "✅"
-    
+
+    # Analysis Result (from Explainer)
+    st.markdown('<div class="section-header">📊 Analysis Result</div>', unsafe_allow_html=True)
+
+    # Determine display style based on explainer verdict
+    display_status = explanation.get('display_status', 'Analysis Complete')
+    explanation_text = explanation.get('explanation', '')
+
+    # Try to infer if it's fake/real from display_status for styling
+    is_likely_fake = any(word in display_status.lower() for word in ['false', 'fake', 'misinformation', 'misleading', 'unreliable'])
+    result_class = "result-fake" if is_likely_fake else "result-real"
+    result_icon = "⚠️" if is_likely_fake else "✅"
+
     st.markdown(f"""
     <div class="{result_class}">
-        <h3>{result_icon} {explanation.get('display_status', classification)}</h3>
-        <p><strong>Classification:</strong> {classification} | 
-           <strong>Confidence:</strong> {confidence:.1%}</p>
-        <p>{explanation.get('explanation', '')}</p>
+        <h3>{result_icon} {display_status}</h3>
+        <p>{explanation_text}</p>
     </div>
     """, unsafe_allow_html=True)
-    
+
     # Key Flags
     if explanation.get('key_flags'):
         st.markdown("**Key Indicators:**")
@@ -493,12 +497,16 @@ def main():
                 if wiki_ev:
                     st.markdown("**📚 Wikipedia Evidence:**")
                     for ev in wiki_ev[:3]:
-                        st.markdown(f"""
-                        <div class="evidence-card">
-                            <strong>{ev.get('source', 'Unknown')}</strong><br>
-                            {ev.get('text', '')[:300]}...
-                        </div>
-                        """, unsafe_allow_html=True)
+                        evidence_text = ev.get('text', '')
+                        source = ev.get('source', 'Unknown')
+
+                        # Show full text in expandable section
+                        with st.expander(f"📄 {source}", expanded=False):
+                            st.markdown(f"""
+                            <div class="evidence-card">
+                                {evidence_text}
+                            </div>
+                            """, unsafe_allow_html=True)
                 else:
                     st.caption("No relevant Wikipedia articles found")
                 
@@ -517,20 +525,6 @@ def main():
                             <a href="{url}" target="_blank">View full fact-check →</a>
                         </div>
                         """, unsafe_allow_html=True)
-    
-    # ----------------------------------------------------------------------
-    # Debug Information (Collapsible)
-    # ----------------------------------------------------------------------
-    
-    with st.expander("🔧 Debug Information"):
-        st.json({
-            "classification": classification,
-            "confidence": confidence,
-            "num_claims": len(claims),
-            "extractor_mode": extractor_mode,
-            "claims": claims,
-            "explanation": explanation
-        })
 
 
 # =============================================================================
