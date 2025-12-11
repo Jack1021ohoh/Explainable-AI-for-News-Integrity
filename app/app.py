@@ -438,9 +438,10 @@ def main():
     # Analysis Result (from Explainer)
     st.markdown('<div class="section-header">📊 Analysis Result</div>', unsafe_allow_html=True)
 
-    # Determine display style based on explainer verdict
+    # Extract fields (excluding thought_process which is internal)
     display_status = explanation.get('display_status', 'Analysis Complete')
     explanation_text = explanation.get('explanation', '')
+    key_flags = explanation.get('key_flags', [])
 
     # Try to infer if it's fake/real from display_status for styling
     is_likely_fake = any(word in display_status.lower() for word in ['false', 'fake', 'misinformation', 'misleading', 'unreliable'])
@@ -455,10 +456,10 @@ def main():
     """, unsafe_allow_html=True)
 
     # Key Flags
-    if explanation.get('key_flags'):
+    if key_flags:
         st.markdown("**Key Indicators:**")
-        for flag in explanation['key_flags']:
-            st.markdown(f"- {flag}")
+        for flag in key_flags:
+            st.markdown(f"• {flag}")
     
     # ----------------------------------------------------------------------
     # Extracted Claims & Evidence

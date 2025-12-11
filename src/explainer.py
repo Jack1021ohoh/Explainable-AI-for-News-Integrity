@@ -174,6 +174,11 @@ Strictly output a JSON object with this structure. Ensure "thought_process" is t
             response_text = response_text.strip()
 
             result = json.loads(response_text)
+
+            # Remove thought_process from output (it's internal reasoning)
+            if 'thought_process' in result:
+                del result['thought_process']
+
             return result
 
         except json.JSONDecodeError as e:
