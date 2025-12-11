@@ -115,29 +115,29 @@ class WikiRetriever:
         self,
         claims: List[str],
         top_k: int = None
-    ) -> List[List[Dict[str, Any]]]:
+    ) -> Dict[str, List[Dict[str, Any]]]:
         """
         Search for evidence for multiple claims.
-        
+
         This is a convenience method for the pipeline integration,
         returning evidence in a format suitable for the Explainer.
-        
+
         Args:
             claims: List of claims to search for.
             top_k: Number of results per claim (default from config).
-            
+
         Returns:
             Dictionary mapping each claim to its evidence list.
         """
         if top_k is None:
             top_k = MAX_EVIDENCE_PER_CLAIM
 
-        results = []
+        results = {}
 
         for claim in claims:
             evidence = self.search(claim, top_k=top_k)
-            results[claims] = evidence
-        
+            results[claim] = evidence
+
         return results
     
     def get_collection_stats(self) -> Dict[str, Any]:
