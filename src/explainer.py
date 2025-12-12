@@ -160,15 +160,64 @@ Strictly output a JSON object with this structure. Ensure "thought_process" is t
 }}
 """
 
+        # Try with JSON mode first
         try:
-            # Force JSON output from Gemini
             response = self.model.generate_content(
                 prompt,
                 generation_config={"response_mime_type": "application/json"}
             )
             response_text = response.text.strip()
+            print(f"[DEBUG] Received response from Gemini ({len(response_text)} chars)")
 
-            result = json.loads(response_text)
+        except Exception as api_error:
+            print(f"❌ GEMINI API ERROR: {type(api_error).__name__}: {api_error}")
+            print("Attempting without JSON mode constraint...")
+
+            # Try without JSON mode as fallback
+            try:
+                response = self.model.generate_content(prompt)
+                response_text = response.text.strip()
+                print(f"[DEBUG] Received response without JSON mode ({len(response_text)} chars)")
+            except Exception as fallback_error:
+                print(f"❌ GEMINI API FAILED COMPLETELY: {fallback_error}")
+                return self._generate_simple_explanation(
+                    classification, confidence, claims,
+                    wikipedia_evidence, fact_check_results
+                )
+
+        # Extract and parse JSON from response
+        try:
+            # Clean potential markdown artifacts and extra text
+            cleaned_text = response_text.strip()
+
+            # Remove markdown code blocks
+            if cleaned_text.startswith("```json"):
+                cleaned_text = cleaned_text[7:]
+            elif cleaned_text.startswith("```"):
+                cleaned_text = cleaned_text[3:]
+
+            if cleaned_text.endswith("```"):
+                cleaned_text = cleaned_text[:-3]
+
+            cleaned_text = cleaned_text.strip()
+
+            # Try to extract JSON if there's extra text
+            import re
+            json_match = re.search(r'\{[\s\S]*\}', cleaned_text)
+            if json_match:
+                cleaned_text = json_match.group(0)
+
+            # Parse JSON
+            result = json.loads(cleaned_text)
+            print(f"[DEBUG] Successfully parsed JSON. Keys: {list(result.keys())}")
+
+            # Validate that we got the expected structure
+            if 'explanation' not in result or 'key_flags' not in result:
+                print(f"⚠️ Response missing expected fields. Got keys: {list(result.keys())}")
+                print(f"Attempting to construct valid response from partial data...")
+
+                # Try to salvage what we can
+                result = self._fix_incomplete_response(result, classification, confidence)
 
             # Remove thought_process from output (it's internal reasoning)
             if 'thought_process' in result:
@@ -177,14 +226,51 @@ Strictly output a JSON object with this structure. Ensure "thought_process" is t
             return result
 
         except json.JSONDecodeError as e:
-            print(f"Failed to parse JSON response: {e}")
-            print(f"Raw response (first 500 chars): {response_text[:500] if 'response_text' in locals() else 'N/A'}")
+            print(f"❌ JSON PARSING ERROR: {e}")
+            print(f"Raw response (first 1000 chars):")
+            print(response_text[:1000] if 'response_text' in locals() else 'N/A')
+            print("-" * 60)
+
             # Fall back to simple explanation
             return self._generate_simple_explanation(
                 classification, confidence, claims,
                 wikipedia_evidence, fact_check_results
             )
+        except Exception as e:
+            print(f"❌ UNEXPECTED ERROR: {type(e).__name__}: {e}")
+            if 'response_text' in locals():
+                print(f"Response: {response_text[:500]}")
+            print("-" * 60)
+
+            return self._generate_simple_explanation(
+                classification, confidence, claims,
+                wikipedia_evidence, fact_check_results
+            )
         
+    def _fix_incomplete_response(
+        self,
+        partial_result: Dict[str, Any],
+        classification: str,
+        confidence: float
+    ) -> Dict[str, Any]:
+        """Attempt to fix incomplete response from Gemini."""
+        fixed = {
+            "display_status": partial_result.get("display_status", "Unverified"),
+            "explanation": partial_result.get("explanation", f"Analysis completed with {confidence:.0%} confidence."),
+            "key_flags": partial_result.get("key_flags", []),
+            "claim_analysis": partial_result.get("claim_analysis", [])
+        }
+
+        # Ensure key_flags is a list
+        if not isinstance(fixed["key_flags"], list):
+            fixed["key_flags"] = [str(fixed["key_flags"])]
+
+        # Ensure claim_analysis is a list
+        if not isinstance(fixed["claim_analysis"], list):
+            fixed["claim_analysis"] = []
+
+        return fixed
+
     def _format_evidence_for_prompt(
         self,
         claims: List[str],

@@ -455,9 +455,19 @@ def main():
     key_flags = explanation.get('key_flags', [])
 
     # Try to infer if it's fake/real from display_status for styling
-    is_likely_fake = any(word in display_status.lower() for word in ['false', 'fake', 'misinformation', 'misleading', 'unreliable'])
-    result_class = "result-fake" if is_likely_fake else "result-real"
-    result_icon = "⚠️" if is_likely_fake else "✅"
+    is_likely_fake = any(word in display_status.lower() for word in ['false', 'fake', 'misinformation', 'misleading', 'unreliable', 'unsubstantiated', 'alarmist', 'satire'])
+    is_likely_real = any(word in display_status.lower() for word in ['verified', 'credible', 'true', 'accurate', 'confirmed'])
+
+    # Determine styling based on content
+    if is_likely_fake:
+        result_class = "result-fake"
+        result_icon = "⚠️"
+    elif is_likely_real:
+        result_class = "result-real"
+        result_icon = "✅"
+    else:
+        result_class = "result-fake"  # Default to warning for uncertain/unverified
+        result_icon = "❓"
 
     st.markdown(f"""
     <div class="{result_class}">
