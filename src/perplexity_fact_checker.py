@@ -14,11 +14,11 @@ from typing import List, Dict, Any, Optional
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 try:
-    from perplexity import Perplexity
+    from perplexityai import Perplexity
     PERPLEXITY_SDK_AVAILABLE = True
 except ImportError:
     PERPLEXITY_SDK_AVAILABLE = False
-    print("⚠️  Warning: perplexity SDK not installed. Install with: pip install perplexity-sdk")
+    print("⚠️  Warning: perplexityai SDK not installed. Install with: pip install perplexityai")
 
 
 class PerplexityFactChecker:
@@ -275,7 +275,7 @@ def main():
     if not checker.client:
         print("❌ Perplexity client not initialized.")
         print("   Please set PERPLEXITY_API_KEY environment variable.")
-        print("   And install: pip install perplexity-sdk")
+        print("   And install: pip install perplexityai")
         return
 
     # Test claims
