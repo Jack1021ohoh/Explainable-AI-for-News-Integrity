@@ -306,7 +306,16 @@ Strictly output a JSON object with this structure. Ensure "thought_process" is t
                 for j, fc in enumerate(fc_results[:2], 1):  # Limit to 2 per claim
                     rating = fc.get('rating', 'Unknown')
                     publisher = fc.get('publisher', 'Unknown')
-                    claim_section += f"  {j}. {publisher} rated: \"{rating}\"\n"
+                    explanation = fc.get('title', '')
+                    sources = fc.get('sources', [])
+
+                    claim_section += f"  {j}. {publisher} verdict: \"{rating}\"\n"
+                    if explanation:
+                        # Truncate long explanations
+                        expl_short = explanation[:200] + "..." if len(explanation) > 200 else explanation
+                        claim_section += f"     Explanation: {expl_short}\n"
+                    if sources:
+                        claim_section += f"     Sources: {', '.join(sources[:3])}\n"
             else:
                 claim_section += "**Fact-Check Results:** No existing fact-checks found\n"
             
