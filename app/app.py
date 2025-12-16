@@ -543,7 +543,7 @@ def main():
                     for fc in fc_results:
                         rating = fc.get('rating', 'Unknown')
                         publisher = fc.get('publisher', 'Unknown')
-                        explanation = fc.get('title', '')
+                        fc_explanation = fc.get('title', '')
                         sources = fc.get('sources', [])
 
                         # Verdict icon
@@ -551,22 +551,25 @@ def main():
                             "TRUE": "✅",
                             "FALSE": "❌",
                             "PARTIALLY TRUE": "⚠️",
-                            "UNVERIFIED": "❓"
+                            "UNVERIFIED": "❓",
+                            "ERROR": "❌"
                         }.get(rating, "❓")
 
                         st.markdown(f"""
                         <div class="factcheck-card">
                             <strong>{verdict_icon} {publisher}</strong>: {rating}<br>
-                            <span style="color: #666;">{explanation}</span>
+                            <span style="color: #666;">{fc_explanation}</span>
                         </div>
                         """, unsafe_allow_html=True)
 
-                        # Show sources
+                        # Show sources as simple clickable links
                         if sources:
                             st.markdown("**Sources:**")
-                            for source in sources[:3]:
-                                if source.startswith('http'):
-                                    st.markdown(f"  • [{source}]({source})")
+                            for source in sources[:5]:
+                                # Extract title and URL
+                                if ' - http' in source:
+                                    title, url = source.rsplit(' - ', 1)
+                                    st.markdown(f"  • [{title}]({url})")
                                 else:
                                     st.markdown(f"  • {source}")
 

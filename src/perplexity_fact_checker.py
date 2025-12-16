@@ -14,11 +14,11 @@ from typing import List, Dict, Any, Optional
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 try:
-    from perplexityai import Perplexity
-    PERPLEXITY_SDK_AVAILABLE = True
+    from perplexity import Perplexity
+    PERPLEXITY_AVAILABLE = True
 except ImportError:
-    PERPLEXITY_SDK_AVAILABLE = False
-    print("⚠️  Warning: perplexityai SDK not installed. Install with: pip install perplexityai")
+    PERPLEXITY_AVAILABLE = False
+    print("⚠️  Warning: perplexity package not installed. Install with: pip install perplexity")
 
 
 class PerplexityFactChecker:
@@ -38,19 +38,28 @@ class PerplexityFactChecker:
         """
         self.api_key = api_key or os.getenv("PERPLEXITY_API_KEY")
 
+        # Debug: Check what we received
+        print(f"🔍 Debug: api_key parameter = {'[PROVIDED]' if api_key else '[NONE]'}")
+        print(f"🔍 Debug: self.api_key = {'[SET]' if self.api_key else '[NONE]'}")
+        print(f"🔍 Debug: PERPLEXITY_AVAILABLE = {PERPLEXITY_AVAILABLE}")
+
         if not self.api_key:
             print("⚠️  Warning: No Perplexity API key found. Set PERPLEXITY_API_KEY environment variable.")
             print("   Fact-checking will be disabled.")
             self.client = None
-        elif not PERPLEXITY_SDK_AVAILABLE:
-            print("⚠️  Warning: Perplexity SDK not available. Install with: pip install perplexity-sdk")
+        elif not PERPLEXITY_AVAILABLE:
+            print("⚠️  Warning: Perplexity package not available. Install with: pip install perplexity")
             self.client = None
         else:
             try:
+                # Initialize Perplexity client with the provided API key
+                print(f"🔍 Debug: Attempting to initialize Perplexity client...")
                 self.client = Perplexity(api_key=self.api_key)
                 print("✅ PerplexityFactChecker initialized successfully.")
             except Exception as e:
                 print(f"❌ Failed to initialize Perplexity client: {e}")
+                import traceback
+                traceback.print_exc()
                 self.client = None
 
     def check_claim(self, claim: str) -> Dict[str, Any]:
@@ -77,7 +86,7 @@ class PerplexityFactChecker:
             # Use Perplexity Search API
             search_results = self.client.search.create(
                 query=query,
-                max_results=3,
+                max_results=2,
                 max_tokens_per_page=1024
             )
 
@@ -125,15 +134,16 @@ class PerplexityFactChecker:
             combined_text = []
 
             for result in search_results.results:
+                # Store full snippet (not truncated)
+                full_snippet = getattr(result, 'snippet', '')
                 sources.append({
                     "title": result.title,
                     "url": result.url,
-                    "snippet": getattr(result, 'snippet', '')[:200]
+                    "snippet": full_snippet  # Store full snippet
                 })
                 # Combine snippets for analysis
-                snippet = getattr(result, 'snippet', '')
-                if snippet:
-                    combined_text.append(snippet)
+                if full_snippet:
+                    combined_text.append(full_snippet)
 
             # Analyze the combined text to determine verdict
             full_text = " ".join(combined_text).lower()
@@ -141,14 +151,18 @@ class PerplexityFactChecker:
             # Simple heuristic-based analysis
             verdict, explanation = self._determine_verdict(claim, full_text, sources)
 
-            # Format sources as list of strings
-            source_list = [f"{s['title']} - {s['url']}" for s in sources[:5]]
+            # Format sources as simple title - URL list
+            source_list = []
+            for s in sources[:5]:
+                source_entry = f"{s['title']} - {s['url']}"
+                source_list.append(source_entry)
 
             return {
                 "claim": claim,
                 "verdict": verdict,
                 "explanation": explanation,
-                "sources": source_list
+                "sources": source_list,
+                "detailed_sources": sources  # Keep detailed sources with snippets
             }
 
         except Exception as e:
@@ -177,28 +191,38 @@ class PerplexityFactChecker:
         true_count = sum(1 for indicator in true_indicators if indicator in text)
         partial_count = sum(1 for indicator in partial_indicators if indicator in text)
 
+        # Get full snippets for reasoning (NO truncation)
+        evidence_snippets = []
+        for source in sources[:2]:  # Use top 2 sources
+            snippet = source.get('snippet', '')
+            if snippet:
+                evidence_snippets.append(snippet.strip())
+
+        # Build explanation with FULL evidence
+        explanation_parts = []
+
         # Determine verdict
         if false_count > true_count and false_count > partial_count:
             verdict = "FALSE"
-            explanation = f"Based on search results from {len(sources)} sources, this claim appears to be false. "
-            explanation += "Multiple reliable sources indicate this is a common myth or misconception."
+            explanation_parts.append(f"Based on {len(sources)} sources, this claim appears to be FALSE.")
         elif true_count > false_count and true_count > partial_count:
             verdict = "TRUE"
-            explanation = f"Based on search results from {len(sources)} sources, this claim appears to be true. "
-            explanation += "Multiple reliable sources confirm the accuracy of this statement."
+            explanation_parts.append(f"Based on {len(sources)} sources, this claim appears to be TRUE.")
         elif partial_count > 0:
             verdict = "PARTIALLY TRUE"
-            explanation = f"Based on search results from {len(sources)} sources, this claim is partially true. "
-            explanation += "The claim contains some accurate information but may be missing context or contain misleading elements."
+            explanation_parts.append(f"Based on {len(sources)} sources, this claim is PARTIALLY TRUE.")
+            explanation_parts.append("The claim contains some accurate information but may be missing context or contain misleading elements.")
         else:
             verdict = "UNVERIFIED"
-            explanation = f"Based on available search results from {len(sources)} sources, this claim could not be definitively verified. "
-            explanation += "More research may be needed to reach a conclusive verdict."
+            explanation_parts.append(f"Based on {len(sources)} sources, this claim could not be definitively verified.")
 
-        # Add source mention
-        if sources:
-            top_source = sources[0]['title']
-            explanation += f" Key source: {top_source}."
+        # Add full evidence/reasoning from top sources
+        if evidence_snippets:
+            explanation_parts.append(f"\n\nEvidence from sources:\n{evidence_snippets[0]}")
+            if len(evidence_snippets) > 1:
+                explanation_parts.append(f"\n\nAdditional context:\n{evidence_snippets[1]}")
+
+        explanation = " ".join(explanation_parts)
 
         return verdict, explanation
 
@@ -275,7 +299,7 @@ def main():
     if not checker.client:
         print("❌ Perplexity client not initialized.")
         print("   Please set PERPLEXITY_API_KEY environment variable.")
-        print("   And install: pip install perplexityai")
+        print("   And install: pip install perplexity")
         return
 
     # Test claims
