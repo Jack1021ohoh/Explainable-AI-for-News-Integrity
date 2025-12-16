@@ -23,8 +23,7 @@ from src.classifier import FakeNewsDetector
 from src.explainer import LLMExplainer
 from src.extractor import ClaimExtractor
 from src.retriever import WikiRetriever
-# from src.factchecker import FactChecker
-FactChecker = None
+from src.perplexity_fact_checker import PerplexityFactChecker
 
 # Try to import Claimify extractor
 try:
@@ -204,11 +203,11 @@ def main():
             help="For claim extraction using Llama models"
         )
 
-        factcheck_key = st.text_input(
-            "Google Fact Check API Key",
+        perplexity_key = st.text_input(
+            "Perplexity API Key",
             type="password",
-            value=os.getenv("GOOGLE_FACTCHECK_API_KEY", ""),
-            help="For querying existing fact-checks"
+            value=os.getenv("PERPLEXITY_API_KEY", ""),
+            help="For AI-powered fact-checking with sources"
         )
         
         # Extractor Selection
@@ -247,9 +246,9 @@ def main():
         )
         
         enable_factcheck = st.checkbox(
-            "Enable Fact Check API",
-            value=bool(factcheck_key),
-            help="Query Google Fact Check for existing fact-checks"
+            "Enable Perplexity Fact Checking",
+            value=bool(perplexity_key),
+            help="Use Perplexity AI to fact-check claims with web search"
         )
         
         # System Status
@@ -263,7 +262,7 @@ def main():
             ("WikiDB", retriever is not None),
             ("Gemini API", bool(gemini_key)),
             ("Groq API", bool(groq_key)),
-            ("Fact Check API", bool(factcheck_key)),
+            ("Perplexity API", bool(perplexity_key)),
             ("Claimify", CLAIMIFY_AVAILABLE)
         ]
         
@@ -378,25 +377,30 @@ def main():
         progress_bar.progress(60)
         
         # ----------------------------------------------------------------------
-        # Step 4: Fact Check API
+        # Step 4: Perplexity Fact Checking
         # ----------------------------------------------------------------------
-        status_text.text("🔄 Step 4/5: Checking fact-check databases...")
-        
+        status_text.text("🔄 Step 4/5: Fact-checking claims with Perplexity AI...")
+
         fact_check_results = {}
-        
-        if enable_factcheck and factcheck_key and claims and FactChecker:
+
+        if enable_factcheck and perplexity_key and claims:
             try:
-                fact_checker = FactChecker(api_key=factcheck_key)
-                fact_check_results = fact_checker.check_claims_for_article(
-                    claims,
-                    max_results_per_claim=3
-                )
+                fact_checker = PerplexityFactChecker(api_key=perplexity_key)
+                perplexity_results = fact_checker.check_claims(claims)
+
+                # Convert Perplexity results to the format expected by explainer
+                for result in perplexity_results:
+                    claim = result["claim"]
+                    fact_check_results[claim] = [{
+                        "rating": result["verdict"],
+                        "publisher": "Perplexity AI",
+                        "title": result["explanation"],
+                        "url": result["sources"][0] if result["sources"] else "N/A",
+                        "sources": result["sources"]
+                    }]
             except Exception as e:
-                st.warning(f"Fact Check API error: {e}")
-        elif enable_factcheck and not FactChecker:
-            # st.warning("FactChecker module is currently disabled.")
-            pass
-        
+                st.warning(f"Perplexity fact-checking error: {e}")
+
         results['fact_check_results'] = fact_check_results
         progress_bar.progress(80)
         
@@ -536,17 +540,35 @@ def main():
                 fc_results = fact_check_results.get(claim, [])
                 if fc_results:
                     st.markdown("**🔍 Fact-Check Results:**")
-                    for fc in fc_results[:2]:
+                    for fc in fc_results:
                         rating = fc.get('rating', 'Unknown')
                         publisher = fc.get('publisher', 'Unknown')
-                        url = fc.get('url', '')
-                        
+                        explanation = fc.get('title', '')
+                        sources = fc.get('sources', [])
+
+                        # Verdict icon
+                        verdict_icon = {
+                            "TRUE": "✅",
+                            "FALSE": "❌",
+                            "PARTIALLY TRUE": "⚠️",
+                            "UNVERIFIED": "❓"
+                        }.get(rating, "❓")
+
                         st.markdown(f"""
                         <div class="factcheck-card">
-                            <strong>{publisher}</strong>: {rating}<br>
-                            <a href="{url}" target="_blank">View full fact-check →</a>
+                            <strong>{verdict_icon} {publisher}</strong>: {rating}<br>
+                            <span style="color: #666;">{explanation}</span>
                         </div>
                         """, unsafe_allow_html=True)
+
+                        # Show sources
+                        if sources:
+                            st.markdown("**Sources:**")
+                            for source in sources[:3]:
+                                if source.startswith('http'):
+                                    st.markdown(f"  • [{source}]({source})")
+                                else:
+                                    st.markdown(f"  • {source}")
 
 
 # =============================================================================
