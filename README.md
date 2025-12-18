@@ -6,17 +6,25 @@ An automated fact-checking system that detects fake news, extracts claims from a
 
 This system implements a complete fact-checking pipeline with a user-friendly Streamlit interface:
 ```
-News Article → Classification → Claim Extraction → Evidence Retrieval → AI Explanation
+News Article → Classification → Claim Extraction → Evidence Retrieval → Fact-Checking → AI Explanation
 ```
+
+The pipeline analyzes news articles through multiple AI-powered stages:
+1. **Classification**: RoBERTa model detects fake/real news with confidence scores
+2. **Claim Extraction**: Extracts verifiable claims using LLM (Simple or Claimify modes)
+3. **Evidence Retrieval**: Searches Wikipedia knowledge base for relevant context
+4. **Fact-Checking**: Perplexity AI verifies claims with web search and citations
+5. **Explanation**: Gemini generates comprehensive, human-readable analysis with verdicts
 
 | Component | Description | Status |
 |-----------|-------------|--------|
 | **Fake News Classifier** | RoBERTa-based model for fake news detection | ✅ Implemented |
 | **LLM Explainer** | Generates human-readable explanations using Gemini API | ✅ Implemented |
-| **Claim Extractor** | Extracts verifiable claims from articles | ✅ Implemented |
-| **Wikipedia Retriever** | Retrieves relevant evidence from Wikipedia via ChromaDB | ✅ Implemented |
+| **Claim Extractor** | Two modes: Simple (fast) and Claimify (3-stage pipeline) | ✅ Implemented |
+| **Wikipedia Retriever** | ChromaDB (local) or PostgreSQL + pgvector (cloud) | ✅ Implemented |
+| **Perplexity Fact Checker** | AI-powered fact-checking with web search and sources | ✅ Implemented |
 | **Streamlit Web App** | Interactive web interface for news analysis | ✅ Implemented |
-| **Fact Check API** | Integrates Google Fact Check Tools API | 📋 Planned |
+| **Cloud Deployment** | Google Cloud Run with GCS volume mounting | ✅ Implemented |
 
 ## 🛠️ Tech Stack
 
@@ -24,9 +32,15 @@ News Article → Classification → Claim Extraction → Evidence Retrieval → 
 - **Web Framework**: [Streamlit](https://streamlit.io/)
 - **ML Framework**: PyTorch, Transformers (Hugging Face)
 - **Classifier**: RoBERTa-base fine-tuned for fake news detection
-- **LLM**: [Google Gemini API](https://ai.google.dev/) (gemini-2.0-flash-exp)
-- **Vector Database**: [ChromaDB](https://www.trychroma.com/)
+- **LLMs**:
+  - [Google Gemini API](https://ai.google.dev/) (gemini-2.5-flash) for explanations
+  - [Groq API](https://groq.com/) (Llama 3.1) for claim extraction
+  - [Perplexity API](https://www.perplexity.ai/) for fact-checking with web search
+- **Vector Database**:
+  - [ChromaDB](https://www.trychroma.com/) (local development)
+  - PostgreSQL + [pgvector](https://github.com/pgvector/pgvector) (cloud deployment)
 - **Embeddings**: Sentence Transformers (all-MiniLM-L6-v2)
+- **Cloud Platform**: Google Cloud Run with GCS FUSE volume mounting
 
 ## 📁 Project Structure
 ```
@@ -38,8 +52,11 @@ Explainable-AI-for-News-Integrity/
 │   ├── __init__.py
 │   ├── classifier.py           # FakeNewsDetector (RoBERTa-based)
 │   ├── explainer.py            # LLMExplainer (Gemini API)
-│   ├── extractor.py            # ClaimExtractor
-│   └── retriever.py            # WiliRetriever (Wikipedia + ChromaDB)
+│   ├── extractor.py            # ClaimExtractor (simple mode)
+│   ├── extractor_claimify.py   # ClaimifyExtractor (3-stage pipeline)
+│   ├── retriever.py            # WikiRetriever (ChromaDB)
+│   ├── retriever_pg.py         # WikiRetrieverPG (PostgreSQL + pgvector)
+│   └── perplexity_fact_checker.py  # PerplexityFactChecker (AI-powered)
 ├── config/                     # Configuration management
 │   └── config.py               # Centralized configuration
 ├── notebooks/                  # Jupyter notebooks
@@ -60,9 +77,12 @@ Explainable-AI-for-News-Integrity/
 ### Prerequisites
 
 - Python 3.12 or higher
-- Google Gemini API key (free at https://aistudio.google.com/app/apikey)
+- **API Keys** (all free tier available):
+  - [Google Gemini API](https://aistudio.google.com/app/apikey) - for explanations (required)
+  - [Groq API](https://console.groq.com/keys) - for claim extraction (optional, improves quality)
+  - [Perplexity API](https://www.perplexity.ai/settings/api) - for fact-checking (optional)
 - Pre-trained RoBERTa model for fake news detection
-- Wikipedia vector database (ChromaDB)
+- Wikipedia vector database (ChromaDB or PostgreSQL)
 
 ### Installation
 
@@ -76,7 +96,10 @@ pip install -r requirements.txt
 
 # 3. Set up environment variables
 cp .env.example .env
-# Edit .env and add your GEMINI_API_KEY and paths
+# Edit .env and add your API keys:
+#   - GEMINI_API_KEY (required)
+#   - GROQ_API_KEY (optional)
+#   - PERPLEXITY_API_KEY (optional)
 ```
 
 ### Setup Required Data
@@ -127,13 +150,21 @@ python src/retriever.py
 
 ### Web Application
 
-1. Launch the app: `python run.py`
-2. Enter article title and text
-3. Click "Analyze Article"
-4. View results:
-   - Classification (FAKE/REAL) with confidence score
-   - AI-generated explanation
+1. **Launch the app**: `python run.py`
+2. **Configure settings** (in sidebar):
+   - Enter API keys (Gemini, Groq, Perplexity)
+   - Choose claim extractor mode (Simple or Claimify)
+   - Enable/disable Perplexity fact-checking
+   - Adjust evidence retrieval settings
+3. **Enter article** title and text
+4. **Click "Analyze Article"**
+5. **View comprehensive results**:
+   - Overall verdict (False, Misleading, Unverified, Partially Verified, Verified, etc.)
+   - AI-generated explanation with reasoning
    - Key indicators and flags
+   - Extracted claims with status badges (Supported/Contradicted/Unverified)
+   - Wikipedia evidence for each claim
+   - Perplexity fact-check results with sources
 
 ### Programmatic Usage
 
@@ -170,35 +201,92 @@ print(result['explanation'])
 
 #### Evidence Retrieval
 ```python
-from src.retriever import WiliRetriever
+# Using ChromaDB (local)
+from src.retriever import WikiRetriever
 
-retriever = WiliRetriever()
+retriever = WikiRetriever()
 evidence = retriever.search("Climate change statistics", top_k=5)
 
 for doc in evidence:
     print(f"[{doc['source']}] {doc['text'][:100]}...")
+
+# Using PostgreSQL + pgvector (cloud)
+from src.retriever_pg import WikiRetrieverPG
+
+retriever_pg = WikiRetrieverPG()
+evidence = retriever_pg.search("Climate change statistics", top_k=5)
 ```
 
 #### Claim Extraction
 ```python
+# Simple extractor (fast, single prompt)
 from src.extractor import ClaimExtractor
 
-extractor = ClaimExtractor()
-claims = extractor.extract_claims("""
+extractor = ClaimExtractor(api_key="your-groq-api-key")
+claims = extractor.extract("""
     Tesla reported record revenue. The company also announced
     new product launches for next quarter.
-""")
+""", max_claims=5)
 
 for claim in claims:
+    print(f"- {claim.text}")
+
+# Claimify extractor (3-stage pipeline, higher quality)
+from src.extractor_claimify import ClaimifyExtractor
+
+claimify = ClaimifyExtractor(api_key="your-groq-api-key")
+result = claimify.extract(
+    text="Article text here...",
+    max_claims=5,
+    max_sentences=5,
+    use_prefilter=True
+)
+
+for claim in result.claims:
     print(f"- {claim}")
 ```
+
+#### Fact-Checking with Perplexity
+```python
+from src.perplexity_fact_checker import PerplexityFactChecker
+
+checker = PerplexityFactChecker(api_key="your-perplexity-api-key")
+results = checker.check_claims([
+    "Water boils at 100 degrees Celsius at sea level.",
+    "The Great Wall of China is visible from the moon."
+])
+
+for result in results:
+    print(f"Claim: {result['claim']}")
+    print(f"Verdict: {result['verdict']}")
+    print(f"Explanation: {result['explanation']}")
+    print(f"Sources: {result['sources']}\n")
+```
+
+## 🚀 Cloud Deployment
+
+This project supports deployment to Google Cloud Run with PostgreSQL and GCS volume mounting.
+
+### Architecture
+- **Cloud Run**: Serverless container deployment
+- **Cloud SQL (PostgreSQL)**: Vector database with pgvector extension
+- **Cloud Storage (GCS)**: Model storage with FUSE volume mounting
+- **Sentence Transformer**: Loaded from GCS-mounted volume to avoid HuggingFace rate limits
+
+### Key Features
+- Auto-detects Cloud Run environment (`K_SERVICE` env var)
+- Automatically uses appropriate paths for models and databases
+- Falls back to ChromaDB for local development
+- Supports both local and cloud configurations in single codebase
+
+See recent commits for deployment configuration details.
 
 ## 👥 Team
 
 | Member | Responsibilities |
 |--------|-----------------|
-| **Hung** | Wikipedia Database Setup, Evidence Retrieval, Fact Check API Integration |
-| **Jack** | Fake News Classification Model, LLM Explainer, System Integration |
+| **Hung** | Wikipedia Database Setup, Evidence Retrieval (ChromaDB & PostgreSQL), Cloud SQL Deployment, Claim Extraction (Simple & Claimify) |
+| **Jack** | Fake News Classification Model, LLM Explainer, Perplexity Fact-Checking, Cloud Run Deployment with GCS, System Integration |
 
 ## 📄 License
 
@@ -207,10 +295,16 @@ This project is for educational purposes.
 ## 🔗 Links
 
 - [GitHub Repository](https://github.com/Jack1021ohoh/Explainable-AI-for-News-Integrity)
-- [Google Gemini API](https://aistudio.google.com/app/apikey)
-- [ChromaDB Documentation](https://docs.trychroma.com/)
-- [Hugging Face Transformers](https://huggingface.co/docs/transformers/)
-- [Streamlit Documentation](https://docs.streamlit.io/)
+- **API Documentation**:
+  - [Google Gemini API](https://aistudio.google.com/app/apikey)
+  - [Groq API](https://console.groq.com/docs/quickstart)
+  - [Perplexity API](https://docs.perplexity.ai/)
+- **Framework & Tools**:
+  - [ChromaDB Documentation](https://docs.trychroma.com/)
+  - [pgvector for PostgreSQL](https://github.com/pgvector/pgvector)
+  - [Hugging Face Transformers](https://huggingface.co/docs/transformers/)
+  - [Streamlit Documentation](https://docs.streamlit.io/)
+  - [Google Cloud Run](https://cloud.google.com/run/docs)
 
 ## 📚 Additional Documentation
 
