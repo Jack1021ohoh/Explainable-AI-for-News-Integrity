@@ -144,7 +144,7 @@ OUTPUT FORMAT (JSON):
 Strictly output a JSON object with this structure. Ensure "thought_process" is the FIRST key.
 {{
     "thought_process": "Step-by-step reasoning. 1. Checked claim X against evidence Y. 2. Noted contradiction...",
-    "display_status": "Short Verdict (e.g., 'False', 'Verified', 'Satire', 'Opinion')",
+    "display_status": "MUST be ONE of these exact values: 'False', 'Misleading', 'Unsubstantiated', 'Partially Verified', 'Unverified', 'Largely Accurate', 'Verified', 'Highly Credible'",
     "explanation": "2-3 clear sentences for the user (ignoring the thought process). Quote the evidence directly.",
     "key_flags": [
         "Bullet 1: Specific contradiction or confirmation",
@@ -158,6 +158,22 @@ Strictly output a JSON object with this structure. Ensure "thought_process" is t
         }}
     ]
 }}
+
+CRITICAL: "display_status" must be EXACTLY one of these 8 values (case-sensitive):
+
+UNTRUSTWORTHY (use these when evidence contradicts or undermines claims):
+- "False" - claims directly contradicted by reliable evidence
+- "Misleading" - technically true but missing critical context that changes meaning
+- "Unsubstantiated" - makes strong claims without credible supporting evidence
+
+UNCERTAIN (use when evidence is insufficient):
+- "Unverified" - claims cannot be confirmed or denied with available evidence
+- "Partially Verified" - some claims verified, others contradicted or unverified
+
+TRUSTWORTHY (use when evidence supports claims):
+- "Largely Accurate" - most claims supported by evidence with minor issues
+- "Verified" - key claims confirmed by multiple reliable sources
+- "Highly Credible" - all major claims strongly supported by authoritative evidence
 """
 
         # Try with JSON mode first
@@ -311,8 +327,8 @@ Strictly output a JSON object with this structure. Ensure "thought_process" is t
 
                     claim_section += f"  {j}. {publisher} verdict: \"{rating}\"\n"
                     if explanation:
-                        # Truncate long explanations
-                        expl_short = explanation[:200] + "..." if len(explanation) > 200 else explanation
+                        # Include full explanation from Perplexity (increased from 200 to 1000 chars)
+                        expl_short = explanation[:1000] + "..." if len(explanation) > 1000 else explanation
                         claim_section += f"     Explanation: {expl_short}\n"
                     if sources:
                         claim_section += f"     Sources: {', '.join(sources[:3])}\n"
