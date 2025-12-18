@@ -8,38 +8,21 @@ import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from config.config import DETECTOR_MODEL_NAME, DETECTOR_MODEL_PATH
 
-# Import GCS utility
-try:
-    from src.gcs_utils import get_model_path
-    GCS_AVAILABLE = True
-except ImportError:
-    GCS_AVAILABLE = False
-    print("Warning: GCS utils not available, using local model path only")
-
 
 class FakeNewsDetector:
     """BERT-based fake news classifier"""
 
-    def __init__(self, model_name: str = None, model_path: str = None, use_gcs: bool = None):
+    def __init__(self, model_name: str = None, model_path: str = None):
         """
         Initialize the fake news detector.
 
         Args:
             model_name (str): Name of the pretrained model (default from config)
             model_path (str): Path to the fine-tuned model (default from config)
-            use_gcs (bool): Whether to download model from GCS (default: checks USE_GCS_MODEL env var)
         """
         self.model_name = model_name or DETECTOR_MODEL_NAME
+        self.model_path = model_path or DETECTOR_MODEL_PATH
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
-        # Determine model path - use GCS if specified or if USE_GCS_MODEL=true
-        if model_path:
-            self.model_path = model_path
-        elif GCS_AVAILABLE and (use_gcs or os.getenv("USE_GCS_MODEL", "false").lower() == "true"):
-            print("Using GCS for model storage...")
-            self.model_path = get_model_path(use_gcs=True)
-        else:
-            self.model_path = DETECTOR_MODEL_PATH
 
         print(f"Loading tokenizer: {self.model_name}...")
         self.tokenizer = AutoTokenizer.from_pretrained(self.model_name)

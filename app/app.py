@@ -80,6 +80,13 @@ st.markdown("""
         border-radius: 5px;
         margin: 0.5rem 0;
     }
+    .result-uncertain {
+        background-color: #fff8e1;
+        border-left: 5px solid #ff9800;
+        padding: 1rem;
+        border-radius: 5px;
+        margin: 0.5rem 0;
+    }
     .claim-card {
         background-color: #fff8e1;
         border-left: 3px solid #ff9800;
@@ -466,19 +473,25 @@ def main():
     explanation_text = explanation.get('explanation', '')
     key_flags = explanation.get('key_flags', [])
 
-    # Try to infer if it's fake/real from display_status for styling
-    is_likely_fake = any(word in display_status.lower() for word in ['false', 'fake', 'misinformation', 'misleading', 'unreliable', 'unsubstantiated', 'alarmist', 'satire'])
-    is_likely_real = any(word in display_status.lower() for word in ['verified', 'credible', 'true', 'accurate', 'confirmed'])
+    # Map display_status to styling (based on controlled vocabulary from explainer)
+    # UNTRUSTWORTHY: "False", "Misleading", "Unsubstantiated"
+    # UNCERTAIN: "Unverified", "Partially Verified"
+    # TRUSTWORTHY: "Largely Accurate", "Verified", "Highly Credible"
 
-    # Determine styling based on content
-    if is_likely_fake:
+    if display_status in ["False", "Misleading", "Unsubstantiated"]:
+        # Untrustworthy - red background
         result_class = "result-fake"
-        result_icon = "⚠️"
-    elif is_likely_real:
+        result_icon = "❌"
+    elif display_status in ["Unverified", "Partially Verified"]:
+        # Uncertain - yellow/orange background
+        result_class = "result-uncertain"
+        result_icon = "❓"
+    elif display_status in ["Largely Accurate", "Verified", "Highly Credible"]:
+        # Trustworthy - green background
         result_class = "result-real"
         result_icon = "✅"
-    else:
-        result_class = "result-fake"  # Default to warning for uncertain/unverified
+    else:  # Unexpected value - default to uncertain
+        result_class = "result-uncertain"
         result_icon = "❓"
 
     st.markdown(f"""

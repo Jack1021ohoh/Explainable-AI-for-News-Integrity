@@ -30,8 +30,5 @@ nltk>=3.8.0
 pyspark>=3.5.0
 datasets>=2.16.0
 
-# Cloud Storage
-google-cloud-storage>=2.10.0
-
 # Utilities
 tqdm>=4.66.0

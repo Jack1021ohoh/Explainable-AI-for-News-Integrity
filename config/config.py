@@ -32,11 +32,17 @@ PERPLEXITY_MODEL = "llama-3.1-sonar-small-128k-online"
 
 # Fake News Detector (RoBERTa)
 DETECTOR_MODEL_NAME = "roberta-base"
-DETECTOR_MODEL_PATH = os.getenv("DETECTOR_MODEL_PATH", "./models/checkpoint_roberta")
 
-# GCS Model Path (for Cloud Run deployment)
-GCS_MODEL_BUCKET = os.getenv("GCS_MODEL_BUCKET", "news-integrity-assets")
-GCS_MODEL_PATH = os.getenv("GCS_MODEL_PATH", "models/checkpoint_roberta")
+# Auto-detect Cloud Run environment and use appropriate model path
+# Cloud Run sets K_SERVICE environment variable
+def _get_default_model_path():
+    """Return model path based on environment (Cloud Run vs local)"""
+    if os.getenv("K_SERVICE"):  # Running in Cloud Run
+        return "/mnt/gcs/models/checkpoint_roberta"
+    else:  # Local development
+        return "./models/checkpoint_roberta"
+
+DETECTOR_MODEL_PATH = os.getenv("DETECTOR_MODEL_PATH", _get_default_model_path())
 
 # =============================================================================
 # Vector Database (ChromaDB)
@@ -60,6 +66,16 @@ USE_POSTGRES = os.getenv("USE_POSTGRES", "true").lower() == "true"
 
 # Sentence Transformer Model for Embeddings
 SENTENCE_TRANSFORMER_MODEL = "all-MiniLM-L6-v2"
+
+# Sentence Transformer model path (local or GCS mounted)
+def _get_sentence_transformer_path():
+    """Return sentence transformer path based on environment (Cloud Run vs local)"""
+    if os.getenv("K_SERVICE"):  # Running in Cloud Run
+        return "/mnt/gcs/models/all-MiniLM-L6-v2"
+    else:  # Local development - use model name to download from HuggingFace
+        return "sentence-transformers/all-MiniLM-L6-v2"
+
+SENTENCE_TRANSFORMER_PATH = os.getenv("SENTENCE_TRANSFORMER_PATH", _get_sentence_transformer_path())
 
 # =============================================================================
 # Cloud Configuration (for future Cloud Run deployment)

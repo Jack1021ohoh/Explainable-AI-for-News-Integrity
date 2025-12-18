@@ -23,6 +23,7 @@ from config.config import (
     POSTGRES_USER,
     POSTGRES_PASSWORD,
     SENTENCE_TRANSFORMER_MODEL,
+    SENTENCE_TRANSFORMER_PATH,
     MAX_EVIDENCE_PER_CLAIM
 )
 
@@ -53,8 +54,8 @@ class WikiRetrieverPG:
         self.model_name = model_name or SENTENCE_TRANSFORMER_MODEL
         
         # Load embedding model
-        print(f"Loading embedding model: {self.model_name}...")
-        self.model = SentenceTransformer(self.model_name, device="cpu")
+        print(f"Loading embedding model from: {SENTENCE_TRANSFORMER_PATH}...")
+        self.model = SentenceTransformer(SENTENCE_TRANSFORMER_PATH, device="cpu")
         
         # Connect to PostgreSQL
         print(f"Connecting to PostgreSQL at {POSTGRES_HOST}...")

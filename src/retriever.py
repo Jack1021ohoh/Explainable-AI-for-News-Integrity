@@ -7,8 +7,9 @@ from typing import List, Dict, Any, Optional
 # Add parent directory to path to import config
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from config.config import (
-    CHROMA_DB_PATH, 
+    CHROMA_DB_PATH,
     SENTENCE_TRANSFORMER_MODEL,
+    SENTENCE_TRANSFORMER_PATH,
     CHROMA_COLLECTION_NAME,
     MAX_EVIDENCE_PER_CLAIM
 )
@@ -47,8 +48,8 @@ class WikiRetriever:
         self.model_name = model_name or SENTENCE_TRANSFORMER_MODEL
         self.collection_name = collection_name or CHROMA_COLLECTION_NAME
 
-        print(f"Loading embedding model: {self.model_name}...")
-        self.model = SentenceTransformer(self.model_name, device="cpu")
+        print(f"Loading embedding model from: {SENTENCE_TRANSFORMER_PATH}...")
+        self.model = SentenceTransformer(SENTENCE_TRANSFORMER_PATH, device="cpu")
 
         print(f"Connecting to ChromaDB at: {self.db_path}...")
         if not os.path.exists(self.db_path):
